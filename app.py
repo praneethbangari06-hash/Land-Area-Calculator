@@ -51,8 +51,11 @@ def save_land():
             "name": data.get("name", "Unnamed Land"),
             "coordinates": data.get("coordinates", []),
             "area_acres": data.get("area_acres", 0),
-            "area_sqm": data.get("area_sqm", 0),
+            "area_guntas": data.get("area_guntas", 0),
+            "area_hectares": data.get("area_hectares", 0),
             "area_sqft": data.get("area_sqft", 0),
+            "area_sqm": data.get("area_sqm", 0),
+            "distance_m": data.get("distance_m", 0),
             "timestamp": datetime.utcnow()
         }
         result = lands_collection.insert_one(land_entry)

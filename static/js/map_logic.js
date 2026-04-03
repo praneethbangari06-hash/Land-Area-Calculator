@@ -10,8 +10,10 @@ function initMap() {
         attributionControl: false
     }).setView([17.3850, 78.4867], 13); // Default to Hyderabad, India
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+    // Google Satellite Tiles
+    const googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains:['mt0','mt1','mt2','mt3']
     }).addTo(map);
 
     // Feature group for drawn items
@@ -43,8 +45,11 @@ function setupDrawControls() {
                     message: '<strong>Error:</strong> Polygon cannot intersect itself!'
                 },
                 shapeOptions: {
-                    color: '#2ecc71',
-                    fillOpacity: 0.3
+                    color: '#27ae60', // Dark green boundary
+                    fillColor: '#2ecc71', // Light green fill
+                    fillOpacity: 0.35,
+                    weight: 3,
+                    lineJoin: 'round'
                 }
             },
             polyline: false,
@@ -68,6 +73,11 @@ function setupDrawControls() {
         // Close polygon for Turf
         coords.push(coords[0]);
         calculateAreaFromCoords(coords);
+        
+        // Speak result in Draw mode too
+        setTimeout(() => {
+            speakAreaResult(currentArea.acres, currentArea.guntas);
+        }, 500);
     });
 
     map.on(L.Draw.Event.EDITED, function (e) {
@@ -81,17 +91,38 @@ function setupDrawControls() {
 }
 
 function calculateAreaFromCoords(coords) {
-    if (coords.length < 4) return; // Need at least 3 points + 1 closing point
+    if (!coords || coords.length < 4) return; // Need at least 3 unique points + 1 closing point
     
-    currentCoords = coords;
-    const polygon = turf.polygon([coords]);
+    // Remove duplicate consecutive points
+    const uniqueCoords = coords.filter((coord, index) => {
+        if (index === 0) return true;
+        const prev = coords[index - 1];
+        return coord[0] !== prev[0] || coord[1] !== prev[1];
+    });
+
+    if (uniqueCoords.length < 4) return;
+
+    currentCoords = uniqueCoords;
+    const polygon = turf.polygon([uniqueCoords]);
     const sqm = turf.area(polygon);
-    const acres = sqm * 0.000247105;
+    
+    // Accurate conversion factors
+    // 1 Acre = 4046.86 sqm
+    // 1 Acre = 40 Guntas
+    // 1 Gunta = 101.17 sqm (approx)
+    // 1 Hectare = 10000 sqm
+    // 1 Acre = 43560 sqft
+    
+    const acres = sqm / 4046.86;
+    const guntas = acres * 40;
+    const hectares = sqm / 10000;
     const sqft = sqm * 10.7639;
 
     currentArea = {
         sqm: Math.round(sqm),
         acres: acres.toFixed(3),
+        guntas: Math.round(guntas),
+        hectares: hectares.toFixed(2),
         sqft: Math.round(sqft)
     };
 
@@ -100,7 +131,9 @@ function calculateAreaFromCoords(coords) {
 
 function updateResultsUI() {
     document.getElementById('area-acres').textContent = currentArea.acres;
-    document.getElementById('area-sqm').textContent = currentArea.sqm.toLocaleString();
+    document.getElementById('area-guntas').textContent = currentArea.guntas;
+    document.getElementById('area-sqft').textContent = currentArea.sqft.toLocaleString();
+    document.getElementById('area-hectares').textContent = currentArea.hectares;
     document.getElementById('results-panel').classList.remove('hidden');
 }
 
@@ -128,12 +161,14 @@ function resetMeasurement() {
         walkPolyline = null;
     }
     currentCoords = [];
-    currentArea = { acres: '0.000', sqm: 0, sqft: 0 };
+    currentArea = { acres: '0.000', guntas: 0, hectares: '0.00', sqft: 0, sqm: 0 };
     totalDistance = 0;
     
     document.getElementById('results-panel').classList.add('hidden');
     document.getElementById('area-acres').textContent = '0.000';
-    document.getElementById('area-sqm').textContent = '0';
+    document.getElementById('area-guntas').textContent = '0';
+    document.getElementById('area-hectares').textContent = '0.00';
+    document.getElementById('area-sqft').textContent = '0';
     document.getElementById('dist-walked').textContent = '0m';
     
     if (currentMode === 'walk' && isWalking) {

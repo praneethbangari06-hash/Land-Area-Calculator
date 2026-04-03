@@ -46,8 +46,16 @@
                         <span id="area-acres" class="value">0.000</span>
                     </div>
                     <div class="stat-item">
-                        <span class="label" data-i18n="sqm">Sq. Meters</span>
-                        <span id="area-sqm" class="value">0</span>
+                        <span class="label" data-i18n="guntas">Guntas</span>
+                        <span id="area-guntas" class="value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label" data-i18n="hectares">Hectares</span>
+                        <span id="area-hectares" class="value">0.00</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label" data-i18n="sqft">Sq. Feet</span>
+                        <span id="area-sqft" class="value">0</span>
                     </div>
                     <div class="stat-item">
                         <span class="label" data-i18n="distance">Distance</span>
@@ -105,6 +113,8 @@
                     <div class="details">
                         <h4 data-i18n="total_area">Total Area</h4>
                         <p><span id="summary-acres">0.000</span> <span data-i18n="acres">Acres</span></p>
+                        <p style="font-size: 14px; color: #666;"><span id="summary-guntas">0</span> <span data-i18n="guntas">Guntas</span> | <span id="summary-hectares">0.00</span> <span data-i18n="hectares">Hectares</span></p>
+                        <p style="font-size: 14px; color: #666;"><span id="summary-sqft">0</span> <span data-i18n="sqft">Sq. Feet</span></p>
                     </div>
                 </div>
                 <div class="summary-card">
@@ -123,7 +133,10 @@
                 </div>
             </div>
             <div class="summary-footer">
-                <button class="btn-primary" onclick="showSaveDialog()">
+                <button class="btn-primary" onclick="downloadResultImage()">
+                    <i class="fas fa-download"></i> <span data-i18n="download_image">Download Result</span>
+                </button>
+                <button class="btn-primary" style="background-color: #3498db;" onclick="showSaveDialog()">
                     <i class="fas fa-save"></i> <span data-i18n="save_history">Save to History</span>
                 </button>
                 <div style="display: flex; gap: 10px;">
@@ -132,6 +145,9 @@
                     </button>
                     <button class="btn-secondary" style="flex: 1;" onclick="closeSummary()">
                         <i class="fas fa-times"></i> <span data-i18n="close">Close</span>
+                    </button>
+                    <button class="btn-secondary" style="flex: 1; background-color: #f39c12; color: white;" onclick="measureAgain()">
+                        <i class="fas fa-redo"></i> <span data-i18n="measure_again">Measure Again</span>
                     </button>
                 </div>
             </div>
@@ -168,6 +184,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <!-- Turf.js for spatial calculations -->
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <!-- html2canvas for capturing results -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Custom JS -->
     <script src="/static/js/translations.js"></script>
     <script src="/static/js/map_logic.js"></script>

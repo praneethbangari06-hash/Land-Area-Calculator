@@ -21,6 +21,45 @@ function hideSaveDialog() {
     document.getElementById('save-modal').classList.add('hidden');
 }
 
+function closeSummary() {
+    document.getElementById('summary-overlay').classList.add('hidden');
+}
+
+function measureAgain() {
+    closeSummary();
+    resetMeasurement();
+}
+
+async function downloadResultImage() {
+    const summaryOverlay = document.getElementById('summary-overlay');
+    const footer = summaryOverlay.querySelector('.summary-footer');
+    
+    // Temporarily hide footer buttons for a cleaner image
+    footer.style.display = 'none';
+    
+    try {
+        const canvas = await html2canvas(summaryOverlay, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            scale: 2 // Higher quality
+        });
+        
+        const link = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        link.download = `Land_Measurement_${dateStr}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        alert(currentLang === 'te' ? "రిజల్ట్ డౌన్‌లోడ్ చేయబడింది!" : "Result image downloaded!");
+    } catch (error) {
+        console.error("Capture error:", error);
+        alert("Failed to capture image.");
+    } finally {
+        footer.style.display = 'flex'; // Restore footer
+    }
+}
+
 async function confirmSave() {
     const nameInput = document.getElementById('land-name');
     const landName = nameInput.value || translations[currentLang].unnamed;
@@ -29,8 +68,10 @@ async function confirmSave() {
         name: landName,
         coordinates: currentCoords,
         area_acres: currentArea.acres,
-        area_sqm: currentArea.sqm,
+        area_guntas: currentArea.guntas,
+        area_hectares: currentArea.hectares,
         area_sqft: currentArea.sqft,
+        area_sqm: currentArea.sqm,
         distance_m: typeof totalDistance !== 'undefined' ? Math.round(totalDistance) : 0
     };
 
@@ -84,18 +125,22 @@ async function loadHistory() {
             }
 
             lands.forEach(land => {
-                const date = new Date(land.timestamp).toLocaleDateString();
+                const date = land.timestamp ? new Date(land.timestamp).toLocaleDateString() : '--';
                 const item = document.createElement('div');
                 item.className = 'history-item';
+                
+                // Safety check for coordinates before using replace
+                const coordsStr = land.coordinates ? JSON.stringify(land.coordinates).replace(/"/g, '&quot;') : '[]';
+                
                 item.innerHTML = `
-                    <h4>${land.name}</h4>
+                    <h4>${land.name || translations[currentLang].unnamed}</h4>
                     <p><i class="fas fa-calendar"></i> ${date}</p>
-                    <p><i class="fas fa-chart-area"></i> ${land.area_acres} Acres</p>
-                    <p><i class="fas fa-map-marker-alt"></i> ${land.area_sqm.toLocaleString()} sqm</p>
+                    <p><i class="fas fa-chart-area"></i> ${land.area_acres || '0.000'} Acres (${land.area_guntas || 0} Guntas)</p>
+                    <p><i class="fas fa-map-marker-alt"></i> ${land.area_hectares || '0.00'} Hectares</p>
                     <span class="delete-btn" onclick="deleteLand('${land._id}')">
                         <i class="fas fa-trash"></i>
                     </span>
-                    <button class="btn-secondary" style="margin-top: 10px; width: 100%;" onclick="viewLandOnMap(${JSON.stringify(land.coordinates).replace(/"/g, '&quot;')})">
+                    <button class="btn-secondary" style="margin-top: 10px; width: 100%;" onclick="viewLandOnMap(${coordsStr})">
                         <i class="fas fa-eye"></i> View on Map
                     </button>
                 `;
@@ -139,7 +184,13 @@ function viewLandOnMap(coordinates) {
         latLngs.pop();
     }
 
-    const polygon = L.polygon(latLngs, { color: '#2ecc71', fillOpacity: 0.3 }).addTo(drawnItems);
+    const polygon = L.polygon(latLngs, { 
+        color: '#27ae60', // Dark green boundary
+        fillColor: '#2ecc71', // Light green fill
+        fillOpacity: 0.35,
+        weight: 3,
+        lineJoin: 'round'
+    }).addTo(drawnItems);
     map.fitBounds(polygon.getBounds());
     
     // Update area results

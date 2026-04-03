@@ -50,8 +50,8 @@ function startWalking() {
                     const to = turf.point([longitude, latitude]);
                     const distance = turf.distance(from, to, { units: 'meters' });
 
-                    // Ignore movement < 2 meters to reduce jitter/noise
-                    if (distance < 2) return;
+                    // Ignore movement < 3 meters to reduce jitter/noise
+                    if (distance < 3) return;
 
                     totalDistance += distance;
                     document.getElementById('dist-walked').textContent = `${Math.round(totalDistance)}m`;
@@ -75,6 +75,11 @@ function startWalking() {
         },
         error => {
             console.error("GPS Error:", error);
+            let msg = translations[currentLang].gps_error_timeout;
+            if (error.code === 1) msg = translations[currentLang].gps_error_denied;
+            else if (error.code === 2) msg = translations[currentLang].gps_error_unavailable;
+            alert(msg);
+            stopWalking();
         },
         {
             enableHighAccuracy: true,
@@ -95,12 +100,18 @@ function stopWalking() {
     document.getElementById('stop-walk-btn').classList.add('hidden');
 
     if (walkPath.length >= 3) {
-        const latLngs = walkPath.map(p => [p[0], p[1]]);
+        // Pre-process path: Simplify to remove jitter
+        const geojsonPath = turf.lineString(walkPath.map(p => [p[1], p[0]]));
+        const simplified = turf.simplify(geojsonPath, { tolerance: 0.00001, highQuality: true });
+        const smoothedCoords = simplified.geometry.coordinates;
+
+        const latLngs = smoothedCoords.map(p => [p[1], p[0]]);
         const polygon = L.polygon(latLngs, { 
-            color: '#10ac84', 
-            fillColor: '#10ac84',
-            fillOpacity: 0.3,
-            weight: 3
+            color: '#27ae60', // Boundary
+            fillColor: '#2ecc71', // Fill
+            fillOpacity: 0.35,
+            weight: 3,
+            lineJoin: 'round'
         });
         
         drawnItems.clearLayers();
@@ -109,11 +120,18 @@ function stopWalking() {
         if (walkPolyline) map.removeLayer(walkPolyline);
         walkPolyline = null;
 
-        const coords = walkPath.map(p => [p[1], p[0]]);
-        coords.push(coords[0]); 
+        // Ensure closing point for area calculation
+        const coords = [...smoothedCoords];
+        if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+            coords.push(coords[0]);
+        }
+        
         calculateAreaFromCoords(coords);
         
         speak('stop');
+        setTimeout(() => {
+            speakAreaResult(currentArea.acres, currentArea.guntas);
+        }, 1500); // Small delay after "Measurement completed"
         showSummary();
     } else {
         alert("Walk path is too short to calculate area. Please walk around the boundary.");
@@ -123,6 +141,9 @@ function stopWalking() {
 
 function showSummary() {
     document.getElementById('summary-acres').textContent = currentArea.acres;
+    document.getElementById('summary-guntas').textContent = currentArea.guntas;
+    document.getElementById('summary-hectares').textContent = currentArea.hectares;
+    document.getElementById('summary-sqft').textContent = currentArea.sqft.toLocaleString();
     document.getElementById('summary-distance').textContent = `${Math.round(totalDistance)}m`;
     
     let accText = translations[currentLang].poor;
