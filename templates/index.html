@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Smart Land Area Calculator</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+    <div id="app">
+        <!-- Map Container -->
+        <div id="map"></div>
+
+        <!-- UI Overlay -->
+        <div class="ui-overlay">
+            <!-- Top Controls: Mode Switch & Language -->
+            <div class="top-controls">
+                <div class="mode-switch">
+                    <button id="draw-mode-btn" class="active" onclick="setMode('draw')">
+                        <i class="fas fa-pencil-alt"></i> <span data-i18n="draw">Draw</span>
+                    </button>
+                    <button id="walk-mode-btn" onclick="setMode('walk')">
+                        <i class="fas fa-walking"></i> <span data-i18n="walk">Walk</span>
+                    </button>
+                </div>
+                <div class="lang-switch">
+                    <button id="lang-btn" onclick="toggleLanguage()">EN</button>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div id="results-panel" class="results-panel hidden">
+                <div class="area-stats">
+                    <div class="stat-item">
+                        <span class="label" data-i18n="acres">Acres</span>
+                        <span id="area-acres" class="value">0.000</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label" data-i18n="sqm">Sq. Meters</span>
+                        <span id="area-sqm" class="value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="label" data-i18n="distance">Distance</span>
+                        <span id="dist-walked" class="value">0m</span>
+                    </div>
+                </div>
+                <div class="gps-info">
+                    <div class="accuracy-tag">
+                        <i class="fas fa-signal"></i> <span data-i18n="accuracy">Accuracy</span>: <span id="gps-accuracy-val">--</span>
+                    </div>
+                    <button onclick="shareOnWhatsApp()" class="share-btn-small">
+                        <i class="fab fa-whatsapp"></i> <span data-i18n="share">Share</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Floating Bottom Panel -->
+            <div class="bottom-panel">
+                <div class="bottom-actions">
+                    <div id="draw-controls" class="action-group">
+                        <button id="reset-draw-btn" class="btn-secondary" onclick="resetMeasurement()">
+                            <i class="fas fa-undo"></i> <span data-i18n="reset">Reset</span>
+                        </button>
+                        <button id="save-draw-btn" class="btn-primary" onclick="showSaveDialog()">
+                            <i class="fas fa-save"></i> <span data-i18n="save">Save</span>
+                        </button>
+                    </div>
+
+                    <div id="walk-controls" class="action-group hidden">
+                        <button id="start-walk-btn" class="btn-primary btn-large" onclick="startWalking()">
+                            <i class="fas fa-play"></i> <span data-i18n="start">Start Walking</span>
+                        </button>
+                        <button id="stop-walk-btn" class="btn-danger btn-large hidden" onclick="stopWalking()">
+                            <i class="fas fa-stop"></i> <span data-i18n="stop">Stop & Finish</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Toggle -->
+            <button id="history-toggle" class="history-toggle" onclick="toggleHistory()">
+                <i class="fas fa-history"></i>
+            </button>
+        </div>
+
+        <!-- Summary Overlay -->
+        <div id="summary-overlay" class="summary-overlay hidden">
+            <div class="summary-header">
+                <h2 data-i18n="summary">Measurement Summary</h2>
+                <p id="summary-date">--</p>
+            </div>
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <i class="fas fa-chart-area"></i>
+                    <div class="details">
+                        <h4 data-i18n="total_area">Total Area</h4>
+                        <p><span id="summary-acres">0.000</span> <span data-i18n="acres">Acres</span></p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <i class="fas fa-ruler-combined"></i>
+                    <div class="details">
+                        <h4 data-i18n="total_distance">Total Distance</h4>
+                        <p id="summary-distance">0m</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <i class="fas fa-bullseye"></i>
+                    <div class="details">
+                        <h4 data-i18n="avg_accuracy">Avg. Accuracy</h4>
+                        <p id="summary-accuracy">Good</p>
+                    </div>
+                </div>
+            </div>
+            <div class="summary-footer">
+                <button class="btn-primary" onclick="showSaveDialog()">
+                    <i class="fas fa-save"></i> <span data-i18n="save_history">Save to History</span>
+                </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" style="flex: 1;" onclick="shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp"></i> <span data-i18n="share">Share</span>
+                    </button>
+                    <button class="btn-secondary" style="flex: 1;" onclick="closeSummary()">
+                        <i class="fas fa-times"></i> <span data-i18n="close">Close</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Sidebar -->
+        <div id="history-sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3 data-i18n="history">Saved Lands</h3>
+                <button onclick="toggleHistory()">&times;</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <!-- Items added dynamically -->
+            </div>
+        </div>
+
+        <!-- Save Dialog Modal -->
+        <div id="save-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3 data-i18n="save_land">Save Land</h3>
+                <input type="text" id="land-name" placeholder="Enter land name" />
+                <div class="modal-actions">
+                    <button onclick="hideSaveDialog()" class="btn-secondary" data-i18n="cancel">Cancel</button>
+                    <button onclick="confirmSave()" class="btn-primary" data-i18n="confirm">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Draw JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Turf.js for spatial calculations -->
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <!-- Custom JS -->
+    <script src="/static/js/translations.js"></script>
+    <script src="/static/js/map_logic.js"></script>
+    <script src="/static/js/gps_logic.js"></script>
+    <script src="/static/js/voice_logic.js"></script>
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
