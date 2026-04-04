@@ -112,7 +112,13 @@ function stopWalking() {
         const simplified = turf.simplify(geojsonPath, { tolerance: 0.00001, highQuality: true });
         const smoothedCoords = simplified.geometry.coordinates;
 
-        const latLngs = smoothedCoords.map(p => [p[1], p[0]]);
+        // Sort points by angle from centroid to prevent crossing lines (BUG FIX 2)
+        const centroid = smoothedCoords.reduce((acc, p) => [acc[0] + p[0] / smoothedCoords.length, acc[1] + p[1] / smoothedCoords.length], [0, 0]);
+        const sortedCoords = [...smoothedCoords].sort((a, b) => {
+            return Math.atan2(a[1] - centroid[1], a[0] - centroid[0]) - Math.atan2(b[1] - centroid[1], b[0] - centroid[0]);
+        });
+
+        const latLngs = sortedCoords.map(p => [p[1], p[0]]);
         const polygon = L.polygon(latLngs, { 
             color: '#27ae60', // Boundary
             fillColor: '#2ecc71', // Fill
@@ -128,12 +134,8 @@ function stopWalking() {
         walkPolyline = null;
 
         // Ensure closing point for area calculation
-        const coords = [...smoothedCoords];
-        if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
-            coords.push(coords[0]);
-        }
-        
-        calculateAreaFromCoords(coords);
+        const finalCoords = [...sortedCoords, sortedCoords[0]];
+        calculateAreaFromCoords(finalCoords);
         
         // Show edit button after walking
         document.getElementById('edit-walk-btn').classList.remove('hidden');

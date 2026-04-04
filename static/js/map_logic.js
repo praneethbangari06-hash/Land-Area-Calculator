@@ -71,20 +71,43 @@ function setupDrawControls() {
         map.addControl(drawControl);
     }
 
-    // Add direct map click handler for easier drawing on mobile
+    // Tap detection for both mobile and desktop
+    let touchStartTime = 0;
+    let touchStartLatLng = null;
+    let isMultiTouch = false;
+
+    map.on('touchstart', function(e) {
+        // Ignore multi-touch (pinch/zoom)
+        if (e.originalEvent.touches.length > 1) {
+            isMultiTouch = true;
+            return;
+        }
+        isMultiTouch = false;
+        touchStartTime = Date.now();
+        touchStartLatLng = e.latlng;
+    });
+
+    map.on('touchend', function(e) {
+        if (isMultiTouch) return;
+        
+        const duration = Date.now() - touchStartTime;
+        // If it was a quick tap (less than 300ms), add a point
+        if (duration < 300 && touchStartLatLng) {
+            if (currentMode === 'draw' && !isEditing) {
+                addManualPoint(touchStartLatLng);
+            }
+        }
+        touchStartLatLng = null;
+    });
+
+    // Keep click for desktop, but prevent double trigger on mobile
     map.on('click', function(e) {
-        if (currentMode === 'draw' && !isEditing) {
-            manualPoints.push(e.latlng);
-            updateManualPolygon();
-            document.getElementById('undo-draw-btn').disabled = false;
-            
-            // Add a temporary marker to show where user tapped
-            L.circleMarker(e.latlng, {
-                radius: 5,
-                color: '#27ae60',
-                fillColor: '#2ecc71',
-                fillOpacity: 1
-            }).addTo(drawnItems);
+        // Only process click if it's not a simulated click from a recent touch
+        const now = Date.now();
+        if (now - touchStartTime > 500) {
+            if (currentMode === 'draw' && !isEditing) {
+                addManualPoint(e.latlng);
+            }
         }
     });
 
@@ -122,6 +145,12 @@ function setupDrawControls() {
     });
 }
 
+function addManualPoint(latlng) {
+    manualPoints.push(latlng);
+    updateManualPolygon();
+    document.getElementById('undo-draw-btn').disabled = false;
+}
+
 function updateManualPolygon() {
     drawnItems.clearLayers();
     if (manualPoints.length === 0) return;
@@ -138,20 +167,44 @@ function updateManualPolygon() {
 
     if (manualPoints.length < 2) return;
 
+    // Sort points by angle from centroid to prevent crossing lines
+    const sortedPoints = sortPointsByAngle(manualPoints);
+
     if (manualPoints.length === 2) {
-        L.polyline(manualPoints, { color: '#27ae60', weight: 3 }).addTo(drawnItems);
+        L.polyline(sortedPoints, { color: '#27ae60', weight: 3 }).addTo(drawnItems);
     } else {
-        const polygon = L.polygon(manualPoints, { 
-            color: '#27ae60', 
-            fillColor: '#2ecc71', 
-            fillOpacity: 0.35,
-            weight: 3
-        }).addTo(drawnItems);
-        
-        const coords = manualPoints.map(p => [p.lng, p.lat]);
-        const closedCoords = [...coords, coords[0]];
-        calculateAreaFromCoords(closedCoords);
+        try {
+            const polygon = L.polygon(sortedPoints, { 
+                color: '#27ae60', 
+                fillColor: '#2ecc71', 
+                fillOpacity: 0.35,
+                weight: 3
+            }).addTo(drawnItems);
+            
+            const coords = sortedPoints.map(p => [p.lng, p.lat]);
+            const closedCoords = [...coords, coords[0]];
+            calculateAreaFromCoords(closedCoords);
+        } catch (err) {
+            console.error("Polygon error:", err);
+        }
     }
+}
+
+function sortPointsByAngle(points) {
+    if (points.length < 3) return points;
+
+    // 1. Calculate centroid
+    const centroid = points.reduce((acc, p) => ({
+        lat: acc.lat + p.lat / points.length,
+        lng: acc.lng + p.lng / points.length
+    }), { lat: 0, lng: 0 });
+
+    // 2. Sort by angle from centroid
+    return [...points].sort((a, b) => {
+        const angleA = Math.atan2(a.lat - centroid.lat, a.lng - centroid.lng);
+        const angleB = Math.atan2(b.lat - centroid.lat, b.lng - centroid.lng);
+        return angleA - angleB;
+    });
 }
 
 function undoLastPoint() {
@@ -166,42 +219,54 @@ function undoLastPoint() {
 }
 
 function calculateAreaFromCoords(coords) {
-    if (!coords || coords.length < 4) return; // Need at least 3 unique points + 1 closing point
+    if (!coords || coords.length < 3) return; 
     
-    // Remove duplicate consecutive points
-    const uniqueCoords = coords.filter((coord, index) => {
-        if (index === 0) return true;
-        const prev = coords[index - 1];
-        return coord[0] !== prev[0] || coord[1] !== prev[1];
+    // 1. Remove duplicate points (except closing point for now)
+    const points = coords.filter((coord, index) => {
+        const next = coords[index + 1];
+        if (!next) return true;
+        return coord[0] !== next[0] || coord[1] !== next[1];
     });
 
-    if (uniqueCoords.length < 4) return;
+    // 2. Remove closing point if it exists to sort clean
+    if (points.length > 1 && points[0][0] === points[points.length-1][0] && points[0][1] === points[points.length-1][1]) {
+        points.pop();
+    }
 
-    currentCoords = uniqueCoords;
-    const polygon = turf.polygon([uniqueCoords]);
-    const sqm = turf.area(polygon);
-    
-    // Accurate conversion factors
-    // 1 Acre = 4046.86 sqm
-    // 1 Acre = 40 Guntas
-    // 1 Gunta = 101.17 sqm (approx)
-    // 1 Hectare = 10000 sqm
-    // 1 Acre = 43560 sqft
-    
-    const acres = sqm / 4046.86;
-    const guntas = acres * 40;
-    const hectares = sqm / 10000;
-    const sqft = sqm * 10.7639;
+    if (points.length < 3) return;
 
-    currentArea = {
-        sqm: Math.round(sqm),
-        acres: acres.toFixed(3),
-        guntas: Math.round(guntas),
-        hectares: hectares.toFixed(2),
-        sqft: Math.round(sqft)
-    };
+    // 3. Sort points by angle from centroid to prevent crossing lines
+    const centroid = points.reduce((acc, p) => [acc[0] + p[0] / points.length, acc[1] + p[1] / points.length], [0, 0]);
+    const sortedPoints = [...points].sort((a, b) => {
+        return Math.atan2(a[1] - centroid[1], a[0] - centroid[0]) - Math.atan2(b[1] - centroid[1], b[0] - centroid[0]);
+    });
 
-    updateResultsUI();
+    // 4. Always close the ring
+    const finalCoords = [...sortedPoints, sortedPoints[0]];
+    currentCoords = finalCoords;
+
+    try {
+        const polygon = turf.polygon([finalCoords]);
+        const sqm = turf.area(polygon);
+        
+        // Accurate conversion factors
+        const acres = sqm / 4046.86;
+        const guntas = acres * 40;
+        const hectares = sqm / 10000;
+        const sqft = sqm * 10.7639;
+
+        currentArea = {
+            sqm: Math.round(sqm),
+            acres: acres.toFixed(3),
+            guntas: Math.round(guntas),
+            hectares: hectares.toFixed(2),
+            sqft: Math.round(sqft)
+        };
+
+        updateResultsUI();
+    } catch (err) {
+        console.error("Turf Area Calculation Error:", err);
+    }
 }
 
 function updateResultsUI() {
@@ -274,6 +339,10 @@ function resetMeasurement() {
     manualPoints = []; // Clear manual points
     currentArea = { acres: '0.000', guntas: 0, hectares: '0.00', sqft: 0, sqm: 0 };
     totalDistance = 0;
+    
+    // Reset AI Advice UI
+    const adviceCard = document.getElementById('ai-advice-card');
+    if (adviceCard) adviceCard.classList.add('hidden');
     
     // Reset editing state
     isEditing = false;

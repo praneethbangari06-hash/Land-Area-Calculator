@@ -73,6 +73,25 @@ def get_lands():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/ai-advice', methods=['POST'])
+def get_ai_advice():
+    try:
+        data = request.json
+        acres = float(data.get('acres', 0))
+        
+        if acres < 0.5:
+            advice = "Small plot (under 0.5 acres). Best crops: Tomato, Brinjal, Chilli. Water: 2-3 hours daily by hand or pipe."
+        elif acres < 2:
+            advice = "Good size plot (0.5-2 acres). Best crops: Groundnut, Cotton, Maize. Borewell recommended for Telangana."
+        elif acres < 10:
+            advice = "Medium farm (2-10 acres). Best crops: Paddy, Cotton, Turmeric. Drip irrigation will save water costs."
+        else:
+            advice = "Large farm (10+ acres). Best crops: Paddy, Soybean, Sunflower. Hire tractor, plan seasonal crop rotation."
+            
+        return jsonify({"advice": advice}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/land/<id>', methods=['DELETE'])
 def delete_land(id):
     try:

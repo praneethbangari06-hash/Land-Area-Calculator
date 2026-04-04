@@ -41,6 +41,44 @@ function measureAgain() {
     resetMeasurement();
 }
 
+async function getAIAdvice() {
+    const adviceBtn = document.getElementById('ai-advice-btn');
+    const adviceCard = document.getElementById('ai-advice-card');
+    const adviceText = document.getElementById('ai-advice-text');
+    
+    if (!currentArea || currentArea.acres === 0) {
+        alert("Please measure some land first.");
+        return;
+    }
+
+    adviceBtn.disabled = true;
+    adviceBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading...`;
+    
+    try {
+        const response = await fetch('/api/ai-advice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ acres: parseFloat(currentArea.acres) })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            adviceText.textContent = data.advice;
+            adviceCard.classList.remove('hidden');
+            // Scroll to advice
+            adviceCard.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            alert("Failed to get AI advice.");
+        }
+    } catch (error) {
+        console.error("AI Advice error:", error);
+        alert("Error connecting to server.");
+    } finally {
+        adviceBtn.disabled = false;
+        adviceBtn.innerHTML = `<i class="fas fa-robot"></i> Get AI Advice`;
+    }
+}
+
 function exportKML() {
     if (!currentCoords || currentCoords.length === 0) return;
     
