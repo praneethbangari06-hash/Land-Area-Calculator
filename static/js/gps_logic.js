@@ -6,56 +6,6 @@ let gpsAccuracy = 0;
 let totalDistance = 0;
 let lastPoint = null;
 let lastSampleTime = 0;
-let gpsSamples = [];
-const SAMPLE_COUNT = 5;
-
-async function getAveragedPosition() {
-    return new Promise((resolve, reject) => {
-        let samples = [];
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const loadingText = document.getElementById('loading-text');
-        
-        loadingOverlay.classList.remove('hidden');
-        
-        const collectSample = () => {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    samples.push({
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude,
-                        accuracy: pos.coords.accuracy
-                    });
-                    
-                    loadingText.textContent = currentLang === 'te' 
-                        ? `ఖచ్చితమైన లొకేషన్ పొందుతోంది... (${samples.length}/${SAMPLE_COUNT})`
-                        : `Getting accurate location... (${samples.length}/${SAMPLE_COUNT})`;
-                    
-                    if (samples.length < SAMPLE_COUNT) {
-                        setTimeout(collectSample, 1000);
-                    } else {
-                        loadingOverlay.classList.add('hidden');
-                        
-                        // Average samples
-                        const avg = samples.reduce((acc, s) => ({
-                            lat: acc.lat + s.lat / SAMPLE_COUNT,
-                            lng: acc.lng + s.lng / SAMPLE_COUNT,
-                            accuracy: acc.accuracy + s.accuracy / SAMPLE_COUNT
-                        }), { lat: 0, lng: 0, accuracy: 0 });
-                        
-                        resolve(avg);
-                    }
-                },
-                (err) => {
-                    loadingOverlay.classList.add('hidden');
-                    reject(err);
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        };
-        
-        collectSample();
-    });
-}
 
 function startWalking() {
     if (!navigator.geolocation) {
@@ -89,7 +39,7 @@ function startWalking() {
     speak('start');
 
     watchId = navigator.geolocation.watchPosition(
-        async position => {
+        position => {
             const { latitude, longitude, accuracy } = position.coords;
             gpsAccuracy = accuracy;
             
@@ -97,20 +47,19 @@ function startWalking() {
 
             const currentTime = Date.now();
             // STEP 2: Control Point Sampling (every 2-3 seconds)
-            if (walkPath.length > 0 && currentTime - lastSampleTime < 2000) return;
+            // Removed aggressive multi-sample averaging to fix mobile buffering/irritation
+            if (walkPath.length > 0 && currentTime - lastSampleTime < 2500) return;
 
-            // Collect 5 samples and average them for each control point
-            try {
-                // Pause watch temporarily or just ignore new positions while averaging
-                const avgPos = await getAveragedPosition();
-                
-                const currentPoint = [avgPos.lat, avgPos.lng];
+            // Filter noisy points (accuracy > 30m is considered poor)
+            if (accuracy <= 30) {
+                const currentPoint = [latitude, longitude];
                 
                 if (lastPoint) {
                     const from = turf.point([lastPoint[1], lastPoint[0]]);
-                    const to = turf.point([avgPos.lng, avgPos.lat]);
+                    const to = turf.point([longitude, latitude]);
                     const distance = turf.distance(from, to, { units: 'meters' });
 
+                    // STEP 1: GPS NOISE FILTERING (Ignore movement < 3 meters)
                     if (distance < 3) return;
 
                     totalDistance += distance;
@@ -118,7 +67,7 @@ function startWalking() {
                 }
                 
                 lastPoint = currentPoint;
-                lastSampleTime = Date.now();
+                lastSampleTime = currentTime;
                 walkPath.push(currentPoint);
                 walkPolyline.addLatLng(currentPoint);
                 
@@ -129,8 +78,6 @@ function startWalking() {
                     const liveCoords = [...coords, coords[0]];
                     calculateAreaFromCoords(liveCoords);
                 }
-            } catch (e) {
-                console.error("Averaging failed:", e);
             }
         },
         error => {

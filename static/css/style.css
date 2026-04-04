@@ -337,6 +337,17 @@ body, html {
     gap: 12px;
 }
 
+/* Leaflet Draw Toolbar override */
+.leaflet-draw-toolbar {
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+    border: none !important;
+}
+
+.leaflet-draw-toolbar a {
+    background-color: white !important;
+    border-bottom: 1px solid #eee !important;
+}
+
 /* History Sidebar */
 .sidebar {
     position: fixed;

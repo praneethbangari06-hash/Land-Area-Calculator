@@ -39,6 +39,7 @@ function initMap() {
 
 function setupDrawControls() {
     drawControl = new L.Control.Draw({
+        position: 'topright', // Move to top right to avoid overlap with our UI
         edit: {
             featureGroup: drawnItems
         },
@@ -69,6 +70,23 @@ function setupDrawControls() {
     if (currentMode === 'draw') {
         map.addControl(drawControl);
     }
+
+    // Add direct map click handler for easier drawing on mobile
+    map.on('click', function(e) {
+        if (currentMode === 'draw' && !isEditing) {
+            manualPoints.push(e.latlng);
+            updateManualPolygon();
+            document.getElementById('undo-draw-btn').disabled = false;
+            
+            // Add a temporary marker to show where user tapped
+            L.circleMarker(e.latlng, {
+                radius: 5,
+                color: '#27ae60',
+                fillColor: '#2ecc71',
+                fillOpacity: 1
+            }).addTo(drawnItems);
+        }
+    });
 
     map.on(L.Draw.Event.CREATED, function (e) {
         const layer = e.layer;
@@ -106,15 +124,28 @@ function setupDrawControls() {
 
 function updateManualPolygon() {
     drawnItems.clearLayers();
+    if (manualPoints.length === 0) return;
+
+    // Redraw markers
+    manualPoints.forEach(latlng => {
+        L.circleMarker(latlng, {
+            radius: 5,
+            color: '#27ae60',
+            fillColor: '#2ecc71',
+            fillOpacity: 1
+        }).addTo(drawnItems);
+    });
+
     if (manualPoints.length < 2) return;
 
     if (manualPoints.length === 2) {
-        L.polyline(manualPoints, { color: '#27ae60' }).addTo(drawnItems);
+        L.polyline(manualPoints, { color: '#27ae60', weight: 3 }).addTo(drawnItems);
     } else {
         const polygon = L.polygon(manualPoints, { 
             color: '#27ae60', 
             fillColor: '#2ecc71', 
-            fillOpacity: 0.35 
+            fillOpacity: 0.35,
+            weight: 3
         }).addTo(drawnItems);
         
         const coords = manualPoints.map(p => [p.lng, p.lat]);
@@ -240,6 +271,7 @@ function resetMeasurement() {
         walkPolyline = null;
     }
     currentCoords = [];
+    manualPoints = []; // Clear manual points
     currentArea = { acres: '0.000', guntas: 0, hectares: '0.00', sqft: 0, sqm: 0 };
     totalDistance = 0;
     
