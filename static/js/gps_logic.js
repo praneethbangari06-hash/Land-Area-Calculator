@@ -5,6 +5,57 @@ let isWalking = false;
 let gpsAccuracy = 0;
 let totalDistance = 0;
 let lastPoint = null;
+let lastSampleTime = 0;
+let gpsSamples = [];
+const SAMPLE_COUNT = 5;
+
+async function getAveragedPosition() {
+    return new Promise((resolve, reject) => {
+        let samples = [];
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        
+        loadingOverlay.classList.remove('hidden');
+        
+        const collectSample = () => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    samples.push({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        accuracy: pos.coords.accuracy
+                    });
+                    
+                    loadingText.textContent = currentLang === 'te' 
+                        ? `ఖచ్చితమైన లొకేషన్ పొందుతోంది... (${samples.length}/${SAMPLE_COUNT})`
+                        : `Getting accurate location... (${samples.length}/${SAMPLE_COUNT})`;
+                    
+                    if (samples.length < SAMPLE_COUNT) {
+                        setTimeout(collectSample, 1000);
+                    } else {
+                        loadingOverlay.classList.add('hidden');
+                        
+                        // Average samples
+                        const avg = samples.reduce((acc, s) => ({
+                            lat: acc.lat + s.lat / SAMPLE_COUNT,
+                            lng: acc.lng + s.lng / SAMPLE_COUNT,
+                            accuracy: acc.accuracy + s.accuracy / SAMPLE_COUNT
+                        }), { lat: 0, lng: 0, accuracy: 0 });
+                        
+                        resolve(avg);
+                    }
+                },
+                (err) => {
+                    loadingOverlay.classList.add('hidden');
+                    reject(err);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        };
+        
+        collectSample();
+    });
+}
 
 function startWalking() {
     if (!navigator.geolocation) {
@@ -16,9 +67,13 @@ function startWalking() {
     walkPath = [];
     totalDistance = 0;
     lastPoint = null;
+    lastSampleTime = 0;
     
     drawnItems.clearLayers();
     if (walkPolyline) map.removeLayer(walkPolyline);
+    
+    // Hide edit button when starting new walk
+    document.getElementById('edit-walk-btn').classList.add('hidden');
 
     walkPolyline = L.polyline([], { 
         color: '#10ac84', 
@@ -34,23 +89,28 @@ function startWalking() {
     speak('start');
 
     watchId = navigator.geolocation.watchPosition(
-        position => {
+        async position => {
             const { latitude, longitude, accuracy } = position.coords;
             gpsAccuracy = accuracy;
             
             updateGPSAccuracyUI(accuracy);
 
-            // Filter noisy points (accuracy > 30m is considered poor)
-            if (accuracy <= 30) {
-                const currentPoint = [latitude, longitude];
+            const currentTime = Date.now();
+            // STEP 2: Control Point Sampling (every 2-3 seconds)
+            if (walkPath.length > 0 && currentTime - lastSampleTime < 2000) return;
+
+            // Collect 5 samples and average them for each control point
+            try {
+                // Pause watch temporarily or just ignore new positions while averaging
+                const avgPos = await getAveragedPosition();
+                
+                const currentPoint = [avgPos.lat, avgPos.lng];
                 
                 if (lastPoint) {
-                    // Calculate distance from last point using Turf
                     const from = turf.point([lastPoint[1], lastPoint[0]]);
-                    const to = turf.point([longitude, latitude]);
+                    const to = turf.point([avgPos.lng, avgPos.lat]);
                     const distance = turf.distance(from, to, { units: 'meters' });
 
-                    // Ignore movement < 3 meters to reduce jitter/noise
                     if (distance < 3) return;
 
                     totalDistance += distance;
@@ -58,19 +118,19 @@ function startWalking() {
                 }
                 
                 lastPoint = currentPoint;
+                lastSampleTime = Date.now();
                 walkPath.push(currentPoint);
                 walkPolyline.addLatLng(currentPoint);
                 
-                // Smoothly pan map
                 map.panTo(currentPoint, { animate: true, duration: 0.5 });
 
-                // LIVE area update while walking (if path has enough points)
                 if (walkPath.length >= 3) {
                     const coords = walkPath.map(p => [p[1], p[0]]);
-                    // Create a temporary closed polygon for live area calculation
                     const liveCoords = [...coords, coords[0]];
                     calculateAreaFromCoords(liveCoords);
                 }
+            } catch (e) {
+                console.error("Averaging failed:", e);
             }
         },
         error => {
@@ -128,6 +188,9 @@ function stopWalking() {
         
         calculateAreaFromCoords(coords);
         
+        // Show edit button after walking
+        document.getElementById('edit-walk-btn').classList.remove('hidden');
+        
         speak('stop');
         setTimeout(() => {
             speakAreaResult(currentArea.acres, currentArea.guntas);
@@ -161,19 +224,26 @@ function closeSummary() {
 }
 
 function updateGPSAccuracyUI(accuracy) {
-    const accuracyVal = document.getElementById('gps-accuracy-val');
-    let text = translations[currentLang].poor;
-
-    if (accuracy < 10) {
-        text = translations[currentLang].good;
-        accuracyVal.style.color = '#10ac84';
-    } else if (accuracy < 30) {
-        text = translations[currentLang].medium;
-        accuracyVal.style.color = '#f1c40f';
+    const accuracyBadge = document.getElementById('accuracy-badge');
+    const accuracyText = document.getElementById('accuracy-text');
+    
+    accuracyText.textContent = `📍 Accuracy: ±${Math.round(accuracy)}m`;
+    
+    accuracyBadge.classList.remove('accuracy-good', 'accuracy-medium', 'accuracy-poor');
+    
+    if (accuracy < 5) {
+        accuracyBadge.classList.add('accuracy-good');
+    } else if (accuracy <= 10) {
+        accuracyBadge.classList.add('accuracy-medium');
     } else {
-        accuracyVal.style.color = '#ee5253';
+        accuracyBadge.classList.add('accuracy-poor');
+        // Notify user to move to open area
+        const warning = currentLang === 'te' 
+            ? "మెరుగైన ఖచ్చితత్వం కోసం ఖాళీ ప్రదేశానికి వెళ్ళండి" 
+            : "Move to open area for better accuracy";
+        
+        // We can show this as a toast or small text if needed
+        console.log(warning);
     }
-
-    accuracyVal.textContent = `${text} (${Math.round(accuracy)}m)`;
 }
 

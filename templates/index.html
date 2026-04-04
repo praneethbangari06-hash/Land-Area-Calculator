@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2ecc71">
 </head>
 <body>
     <div id="app">
@@ -33,9 +36,18 @@
                         <i class="fas fa-walking"></i> <span data-i18n="walk">Walk</span>
                     </button>
                 </div>
+                <div id="accuracy-badge" class="accuracy-badge">
+                    <span id="accuracy-text">📍 Accuracy: ±--m</span>
+                </div>
                 <div class="lang-switch">
                     <button id="lang-btn" onclick="toggleLanguage()">EN</button>
                 </div>
+            </div>
+
+            <!-- Loading Overlay -->
+            <div id="loading-overlay" class="loading-overlay hidden">
+                <div class="spinner"></div>
+                <p id="loading-text">Getting accurate location...</p>
             </div>
 
             <!-- Results Panel -->
@@ -76,8 +88,11 @@
             <div class="bottom-panel">
                 <div class="bottom-actions">
                     <div id="draw-controls" class="action-group">
+                        <button id="undo-draw-btn" class="btn-secondary" onclick="undoLastPoint()" disabled>
+                            <i class="fas fa-undo-alt"></i> <span data-i18n="undo">Undo</span>
+                        </button>
                         <button id="reset-draw-btn" class="btn-secondary" onclick="resetMeasurement()">
-                            <i class="fas fa-undo"></i> <span data-i18n="reset">Reset</span>
+                            <i class="fas fa-trash-alt"></i> <span data-i18n="reset">Reset</span>
                         </button>
                         <button id="save-draw-btn" class="btn-primary" onclick="showSaveDialog()">
                             <i class="fas fa-save"></i> <span data-i18n="save">Save</span>
@@ -90,6 +105,9 @@
                         </button>
                         <button id="stop-walk-btn" class="btn-danger btn-large hidden" onclick="stopWalking()">
                             <i class="fas fa-stop"></i> <span data-i18n="stop">Stop & Finish</span>
+                        </button>
+                        <button id="edit-walk-btn" class="btn-secondary hidden" onclick="toggleEditMode()">
+                            <i class="fas fa-edit"></i> <span data-i18n="edit">Edit</span>
                         </button>
                     </div>
                 </div>
@@ -136,6 +154,14 @@
                 <button class="btn-primary" onclick="downloadResultImage()">
                     <i class="fas fa-download"></i> <span data-i18n="download_image">Download Result</span>
                 </button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" style="flex: 1;" onclick="exportKML()">
+                        <i class="fas fa-file-code"></i> <span>KML</span>
+                    </button>
+                    <button class="btn-secondary" style="flex: 1;" onclick="exportGeoJSON()">
+                        <i class="fas fa-globe"></i> <span>GeoJSON</span>
+                    </button>
+                </div>
                 <button class="btn-primary" style="background-color: #3498db;" onclick="showSaveDialog()">
                     <i class="fas fa-save"></i> <span data-i18n="save_history">Save to History</span>
                 </button>

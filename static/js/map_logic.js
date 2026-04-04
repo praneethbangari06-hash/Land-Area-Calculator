@@ -1,7 +1,10 @@
 let map, drawControl, drawnItems;
 let currentMode = 'draw';
+let isEditing = false;
+let editHandler = null;
 let currentArea = { acres: 0, sqm: 0, sqft: 0 };
 let currentCoords = [];
+let manualPoints = []; // Track manual points for undo
 
 function initMap() {
     // Initial view set to a default (can be updated to user location)
@@ -10,11 +13,14 @@ function initMap() {
         attributionControl: false
     }).setView([17.3850, 78.4867], 13); // Default to Hyderabad, India
 
-    // Google Satellite Tiles
-    const googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains:['mt0','mt1','mt2','mt3']
-    }).addTo(map);
+    // ESRI World Imagery Tiles
+    const esriWorldImagery = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
+        { 
+            attribution: 'Tiles © Esri', 
+            maxZoom: 19 
+        }
+    ).addTo(map);
 
     // Feature group for drawn items
     drawnItems = new L.FeatureGroup();
@@ -55,7 +61,7 @@ function setupDrawControls() {
             polyline: false,
             rectangle: false,
             circle: false,
-            marker: false,
+            marker: true, // Enable markers for manual point tracking
             circlemarker: false
         }
     });
@@ -66,13 +72,21 @@ function setupDrawControls() {
 
     map.on(L.Draw.Event.CREATED, function (e) {
         const layer = e.layer;
+        
+        if (e.layerType === 'marker') {
+            manualPoints.push(layer.getLatLng());
+            updateManualPolygon();
+            document.getElementById('undo-draw-btn').disabled = false;
+            return;
+        }
+
         drawnItems.clearLayers();
         drawnItems.addLayer(layer);
         
         const coords = layer.getLatLngs()[0].map(latlng => [latlng.lng, latlng.lat]);
         // Close polygon for Turf
-        coords.push(coords[0]);
-        calculateAreaFromCoords(coords);
+        const closedCoords = [...coords, coords[0]];
+        calculateAreaFromCoords(closedCoords);
         
         // Speak result in Draw mode too
         setTimeout(() => {
@@ -84,10 +98,40 @@ function setupDrawControls() {
         const layers = e.layers;
         layers.eachLayer(function (layer) {
             const coords = layer.getLatLngs()[0].map(latlng => [latlng.lng, latlng.lat]);
-            coords.push(coords[0]);
-            calculateAreaFromCoords(coords);
+            const closedCoords = [...coords, coords[0]];
+            calculateAreaFromCoords(closedCoords);
         });
     });
+}
+
+function updateManualPolygon() {
+    drawnItems.clearLayers();
+    if (manualPoints.length < 2) return;
+
+    if (manualPoints.length === 2) {
+        L.polyline(manualPoints, { color: '#27ae60' }).addTo(drawnItems);
+    } else {
+        const polygon = L.polygon(manualPoints, { 
+            color: '#27ae60', 
+            fillColor: '#2ecc71', 
+            fillOpacity: 0.35 
+        }).addTo(drawnItems);
+        
+        const coords = manualPoints.map(p => [p.lng, p.lat]);
+        const closedCoords = [...coords, coords[0]];
+        calculateAreaFromCoords(closedCoords);
+    }
+}
+
+function undoLastPoint() {
+    if (manualPoints.length > 0) {
+        manualPoints.pop();
+        updateManualPolygon();
+        if (manualPoints.length === 0) {
+            document.getElementById('undo-draw-btn').disabled = true;
+            resetMeasurement();
+        }
+    }
 }
 
 function calculateAreaFromCoords(coords) {
@@ -137,6 +181,41 @@ function updateResultsUI() {
     document.getElementById('results-panel').classList.remove('hidden');
 }
 
+function toggleEditMode() {
+    const editBtn = document.getElementById('edit-walk-btn');
+    
+    if (!isEditing) {
+        // Start Editing
+        isEditing = true;
+        
+        // Hide summary while editing
+        closeSummary();
+        
+        editHandler = new L.EditToolbar.Edit(map, {
+            featureGroup: drawnItems
+        });
+        editHandler.enable();
+        
+        editBtn.innerHTML = `<i class="fas fa-check"></i> <span data-i18n="finish_edit">${translations[currentLang].finish_edit}</span>`;
+        editBtn.classList.replace('btn-secondary', 'btn-primary');
+    } else {
+        // Finish Editing
+        isEditing = false;
+        if (editHandler) {
+            editHandler.save();
+            editHandler.disable();
+        }
+        
+        editBtn.innerHTML = `<i class="fas fa-edit"></i> <span data-i18n="edit">${translations[currentLang].edit}</span>`;
+        editBtn.classList.replace('btn-primary', 'btn-secondary');
+        
+        // After editing, show summary again with updated values
+        if (currentMode === 'walk') {
+            showSummary();
+        }
+    }
+}
+
 function setMode(mode) {
     currentMode = mode;
     document.getElementById('draw-mode-btn').classList.toggle('active', mode === 'draw');
@@ -163,6 +242,19 @@ function resetMeasurement() {
     currentCoords = [];
     currentArea = { acres: '0.000', guntas: 0, hectares: '0.00', sqft: 0, sqm: 0 };
     totalDistance = 0;
+    
+    // Reset editing state
+    isEditing = false;
+    if (editHandler) {
+        editHandler.disable();
+        editHandler = null;
+    }
+    const editBtn = document.getElementById('edit-walk-btn');
+    if (editBtn) {
+        editBtn.classList.add('hidden');
+        editBtn.innerHTML = `<i class="fas fa-edit"></i> <span data-i18n="edit">${translations[currentLang].edit}</span>`;
+        editBtn.classList.replace('btn-primary', 'btn-secondary');
+    }
     
     document.getElementById('results-panel').classList.add('hidden');
     document.getElementById('area-acres').textContent = '0.000';

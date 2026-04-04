@@ -91,6 +91,61 @@ body, html {
     cursor: pointer;
 }
 
+/* Accuracy Badge */
+.accuracy-badge {
+    background: white;
+    padding: 8px 12px;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    font-size: 12px;
+    font-weight: 600;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.3s;
+}
+
+.accuracy-good { border: 2px solid #2ecc71; color: #27ae60; }
+.accuracy-medium { border: 2px solid #f1c40f; color: #f39c12; }
+.accuracy-poor { border: 2px solid #e74c3c; color: #c0392b; }
+
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #2ecc71;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loading-text {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
 /* Results Panel */
 .results-panel {
     position: absolute;

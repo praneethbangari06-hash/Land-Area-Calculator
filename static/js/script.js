@@ -2,6 +2,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     updateUIStrings();
     loadHistory();
+
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/sw.js').then(registration => {
+                console.log('SW registered: ', registration);
+            }).catch(registrationError => {
+                console.log('SW registration failed: ', registrationError);
+            });
+        });
+    }
 });
 
 function toggleHistory() {
@@ -28,6 +39,61 @@ function closeSummary() {
 function measureAgain() {
     closeSummary();
     resetMeasurement();
+}
+
+function exportKML() {
+    if (!currentCoords || currentCoords.length === 0) return;
+    
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Polam Calculator Measurement</name>
+    <Placemark>
+      <name>Land Polygon</name>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+              ${currentCoords.map(c => `${c[0]},${c[1]},0`).join('\n              ')}
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>`;
+
+    downloadFile(kml, `polam_${new Date().toISOString().slice(0, 10)}.kml`, 'application/vnd.google-earth.kml+xml');
+}
+
+function exportGeoJSON() {
+    if (!currentCoords || currentCoords.length === 0) return;
+    
+    const geojson = {
+        type: "FeatureCollection",
+        features: [{
+            type: "Feature",
+            properties: {
+                area_acres: currentArea.acres,
+                area_guntas: currentArea.guntas,
+                timestamp: new Date().toISOString()
+            },
+            geometry: {
+                type: "Polygon",
+                coordinates: [currentCoords]
+            }
+        }]
+    };
+
+    downloadFile(JSON.stringify(geojson, null, 2), `polam_${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+}
+
+function downloadFile(content, fileName, contentType) {
+    const a = document.createElement("a");
+    const file = new Blob([content], { type: contentType });
+    a.href = URL.createObjectURL(file);
+    a.download = fileName;
+    a.click();
 }
 
 async function downloadResultImage() {
