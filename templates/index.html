@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Smart Land Area Calculator</title>
-    
+
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet Draw CSS -->
@@ -19,10 +20,18 @@
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2ecc71">
 </head>
+
 <body>
-    <!-- Landing Page: Spline Only -->
+    <!-- Landing Page: Spline Animation Background & Title Overlay -->
     <div id="landing-page" class="landing-page">
         <canvas id="canvas3d"></canvas>
+        <div class="landing-content">
+            <h1 class="landing-title" data-i18n="app_title">Land Area Calculator</h1>
+            <div class="scroll-hint">
+                <span data-i18n="scroll_hint">Scroll or Swipe up to Start</span>
+                <i class="fas fa-chevron-down"></i>
+            </div>
+        </div>
     </div>
 
     <div id="app">
@@ -53,20 +62,20 @@
             <div id="result-overlay" class="result-overlay hidden" onclick="hideResultsPanel(event)">
                 <div id="results-panel" class="premium-glass-card" onclick="event.stopPropagation()">
                     <button class="close-card-btn" onclick="hideResultsPanel()">&times;</button>
-                    
+
                     <!-- Decorative Soft Gradient Glows -->
                     <div class="card-glow glow-1"></div>
                     <div class="card-glow glow-2"></div>
-                    
+
                     <div class="card-content">
                         <h3 class="card-title" data-i18n="results">Measurement Results</h3>
-                        
+
                         <div class="premium-stats">
                             <div class="p-stat main-stat">
                                 <span class="p-value" id="area-acres">0.000</span>
                                 <span class="p-label" data-i18n="acres">Acres</span>
                             </div>
-                            
+
                             <div class="p-stat-grid">
                                 <div class="p-stat">
                                     <span id="area-guntas" class="p-value">0</span>
@@ -106,8 +115,8 @@
                     <button onclick="closeAICard()" class="close-ai">&times;</button>
                 </div>
                 <div id="ai-loading" class="ai-loading hidden">
-                     <div class="spinner"></div>
-                     <span>Asking Claude...</span>
+                    <div class="spinner"></div>
+                    <span>Asking Claude...</span>
                 </div>
                 <div id="ai-content" class="ai-content"></div>
             </div>
@@ -165,8 +174,11 @@
                     <div class="details">
                         <h4 data-i18n="total_area">Total Area</h4>
                         <p><span id="summary-acres">0.000</span> <span data-i18n="acres">Acres</span></p>
-                        <p style="font-size: 14px; color: #666;"><span id="summary-guntas">0</span> <span data-i18n="guntas">Guntas</span> | <span id="summary-hectares">0.00</span> <span data-i18n="hectares">Hectares</span></p>
-                        <p style="font-size: 14px; color: #666;"><span id="summary-sqft">0</span> <span data-i18n="sqft">Sq. Feet</span></p>
+                        <p style="font-size: 14px; color: #666;"><span id="summary-guntas">0</span> <span
+                                data-i18n="guntas">Guntas</span> | <span id="summary-hectares">0.00</span> <span
+                                data-i18n="hectares">Hectares</span></p>
+                        <p style="font-size: 14px; color: #666;"><span id="summary-sqft">0</span> <span
+                                data-i18n="sqft">Sq. Feet</span></p>
                     </div>
                 </div>
                 <div class="summary-card">
@@ -206,7 +218,8 @@
                     <button class="btn-secondary" style="flex: 1;" onclick="closeSummary()">
                         <i class="fas fa-times"></i> <span data-i18n="close">Close</span>
                     </button>
-                    <button class="btn-secondary" style="flex: 1; background-color: #f39c12; color: white;" onclick="measureAgain()">
+                    <button class="btn-secondary" style="flex: 1; background-color: #f39c12; color: white;"
+                        onclick="measureAgain()">
                         <i class="fas fa-redo"></i> <span data-i18n="measure_again">Measure Again</span>
                     </button>
                 </div>
@@ -260,4 +273,5 @@
     <script src="/static/js/voice_logic.js"></script>
     <script src="/static/js/script.js"></script>
 </body>
+
 </html>

@@ -40,7 +40,9 @@ const translations = {
         delete_confirm: "Are you sure you want to delete this land?",
         gps_error_denied: "Please enable location permission to measure land.",
         gps_error_unavailable: "GPS is not working. Please stay in an open area.",
-        gps_error_timeout: "GPS signal timed out. Please try again."
+        gps_error_timeout: "GPS signal timed out. Please try again.",
+        app_title: "Land Area Calculator",
+        scroll_hint: "Scroll or Swipe up to Start"
     },
     te: {
         draw: "డ్రా",
@@ -84,7 +86,9 @@ const translations = {
         area_result_te: "మీ భూమి విస్తీర్ణం",
         gps_error_denied: "దయచేసి లొకేషన్ పర్మిషన్ ఇవ్వండి. అప్పుడే కొలత సాధ్యమవుతుంది.",
         gps_error_unavailable: "మీ ఫోన్‌లో GPS పనిచేయడం లేదు. దయచేసి సిగ్నల్ వచ్చే చోట ఉండండి.",
-        gps_error_timeout: "GPS సిగ్నల్ అందడం లేదు. దయచేసి మళ్ళీ ప్రయత్నించండి."
+        gps_error_timeout: "GPS సిగ్నల్ అందడం లేదు. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+        app_title: "భూమి విస్తీర్ణం కాలిక్యులేటర్",
+        scroll_hint: "ప్రారంభించడానికి స్క్రోల్ చేయండి లేదా పైకి స్వైప్ చేయండి"
     }
 };
 
