@@ -41,44 +41,6 @@ function measureAgain() {
     resetMeasurement();
 }
 
-async function getAIAdvice() {
-    const adviceBtn = document.getElementById('ai-advice-btn');
-    const adviceCard = document.getElementById('ai-advice-card');
-    const adviceText = document.getElementById('ai-advice-text');
-    
-    if (!currentArea || currentArea.acres === 0) {
-        alert("Please measure some land first.");
-        return;
-    }
-
-    adviceBtn.disabled = true;
-    adviceBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Loading...`;
-    
-    try {
-        const response = await fetch('/api/ai-advice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ acres: parseFloat(currentArea.acres) })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            adviceText.textContent = data.advice;
-            adviceCard.classList.remove('hidden');
-            // Scroll to advice
-            adviceCard.scrollIntoView({ behavior: 'smooth' });
-        } else {
-            alert("Failed to get AI advice.");
-        }
-    } catch (error) {
-        console.error("AI Advice error:", error);
-        alert("Error connecting to server.");
-    } finally {
-        adviceBtn.disabled = false;
-        adviceBtn.innerHTML = `<i class="fas fa-robot"></i> Get AI Advice`;
-    }
-}
-
 function exportKML() {
     if (!currentCoords || currentCoords.length === 0) return;
     
@@ -300,3 +262,212 @@ function viewLandOnMap(coordinates) {
     // Update area results
     calculateAreaFromCoords(coordinates);
 }
+
+// ----------------------------------------------------
+// UI Logic for Results Panel & Animations
+// ----------------------------------------------------
+
+function showResultsPanel() {
+    const overlay = document.getElementById('result-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    
+    // Clear any previous values back to 0 visually BEFORE the delay begins
+    document.getElementById('area-acres').textContent = '0.000';
+    document.getElementById('area-guntas').textContent = '0';
+    document.getElementById('area-hectares').textContent = '0.00';
+    document.getElementById('area-sqft').textContent = '0';
+    document.getElementById('dist-walked').textContent = '0m';
+
+    // Trigger count-up animation sequentially (stagger effect)
+    if (typeof currentArea !== 'undefined') {
+        const staggerDelay = 250; // Delay between each animation starting
+        let currentDelay = 0;
+
+        setTimeout(() => {
+            animateValue("area-acres", 0, parseFloat(currentArea.acres) || 0, 800, false);
+        }, currentDelay);
+        currentDelay += staggerDelay;
+
+        setTimeout(() => {
+            animateValue("area-guntas", 0, currentArea.guntas || 0, 700, true);
+        }, currentDelay);
+        currentDelay += staggerDelay;
+
+        setTimeout(() => {
+            animateValue("area-hectares", 0, parseFloat(currentArea.hectares) || 0, 700, false);
+        }, currentDelay);
+        currentDelay += staggerDelay;
+
+        setTimeout(() => {
+            animateValue("area-sqft", 0, currentArea.sqft || 0, 900, true, true);
+        }, currentDelay);
+        currentDelay += staggerDelay;
+
+        if (typeof totalDistance !== 'undefined') {
+            setTimeout(() => {
+                animateValue("dist-walked", 0, totalDistance, 600, true, false, 'm');
+            }, currentDelay);
+        }
+    }
+}
+
+function hideResultsPanel(event) {
+    // If event exists, ensure we only close if clicking the background or close button directly
+    if (event && event.type === 'click' && event.target.id !== 'result-overlay' && !event.target.classList.contains('close-card-btn')) {
+        return;
+    }
+    const overlay = document.getElementById('result-overlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+        // Add a class that visually applies the swipe-down if triggered via touch, but the default css transition will fade and scale it normally too.
+        overlay.classList.add('hidden');
+    }
+}
+
+// Swipe down to close for Mobile UX
+let cardTouchStartY = 0;
+let cardTouchCurrentY = 0;
+
+window.addEventListener('DOMContentLoaded', () => {
+    const overlay = document.getElementById('result-overlay');
+    const card = document.getElementById('results-panel');
+    
+    if (overlay && card) {
+        overlay.addEventListener('touchstart', (e) => {
+            // Only capture single touches
+            if (e.touches.length === 1) {
+                cardTouchStartY = e.touches[0].clientY;
+                cardTouchCurrentY = cardTouchStartY;
+                card.style.transition = 'none'; // Disable transition during drag for immediate feedback
+            }
+        }, { passive: true });
+
+        overlay.addEventListener('touchmove', (e) => {
+            if (cardTouchStartY === 0) return;
+            cardTouchCurrentY = e.touches[0].clientY;
+            let diff = cardTouchCurrentY - cardTouchStartY;
+            
+            // Only allow dragging downwards
+            if (diff > 0) {
+                card.style.transform = `translateY(${diff}px) scale(1)`;
+                card.style.opacity = Math.max(1 - (diff / 300), 0.3); // Fade out slightly as dragged
+            }
+        }, { passive: true });
+
+        overlay.addEventListener('touchend', (e) => {
+            if (cardTouchStartY === 0) return;
+            let diff = cardTouchCurrentY - cardTouchStartY;
+            
+            // Re-enable smooth transitions
+            card.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1), opacity 0.4s ease';
+            
+            // If swiped down more than 70px, close the card
+            if (diff > 70) {
+                hideResultsPanel();
+                // Reset card inline styles so hidden CSS takes over
+                setTimeout(() => {
+                    card.style.transform = '';
+                    card.style.opacity = '';
+                }, 400); // After transition finishes
+            } else {
+                // Bounce back
+                card.style.transform = 'translateY(0) scale(1)';
+                card.style.opacity = '1';
+                setTimeout(() => {
+                    card.style.transform = '';
+                    card.style.opacity = '';
+                }, 400);
+            }
+            
+            cardTouchStartY = 0;
+        }, { passive: true });
+    }
+});
+
+/**
+ * Animates a number counting up from start to end.
+ * @param {string} id - The DOM element ID to update
+ * @param {number} start - Starting value
+ * @param {number} end - Ending value
+ * @param {number} duration - Animation duration in ms
+ * @param {boolean} isInteger - Whether to round to whole numbers
+ * @param {boolean} useLocale - Whether to add commas for large numbers
+ * @param {string} suffix - Optional string suffix (e.g. 'm' for meters)
+ */
+function animateValue(id, start, end, duration, isInteger, useLocale = false, suffix = '') {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    
+    if (start === end || isNaN(end)) {
+        let finalStr = isInteger ? Math.round(end).toString() : end.toFixed(3);
+        if (useLocale) finalStr = Math.round(end).toLocaleString();
+        obj.textContent = finalStr + suffix;
+        return;
+    }
+    
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        
+        // Easing out quintic for smooth deceleration
+        const easeProgress = 1 - Math.pow(1 - progress, 5);
+        let currentVal = start + easeProgress * (end - start);
+        
+        let displayStr;
+        if (isInteger) {
+            displayStr = Math.round(currentVal).toString();
+            if (useLocale) displayStr = Math.round(currentVal).toLocaleString();
+        } else {
+            // Check if it's hectares (needs 2 decimals) vs acres (needs 3)
+            let decimals = id === "area-hectares" ? 2 : 3;
+            displayStr = currentVal.toFixed(decimals);
+        }
+        
+        obj.textContent = displayStr + suffix;
+        
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            // Force final exact value
+            let finalStr = isInteger ? Math.round(end).toString() : end.toFixed(id === "area-hectares" ? 2 : 3);
+            if (useLocale) finalStr = Math.round(end).toLocaleString();
+            obj.textContent = finalStr + suffix;
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// Ensure map behaves nicely after smooth scrolling
+function enterApp() {
+    const landing = document.getElementById('landing-page');
+    if (landing && !landing.classList.contains('scrolled-up')) {
+        landing.classList.add('scrolled-up');
+        setTimeout(() => {
+            landing.style.display = 'none';
+            if (typeof map !== 'undefined' && map.invalidateSize) {
+                map.invalidateSize();
+            }
+        }, 1000); // 1s matches our CSS transition
+    }
+}
+
+// Track mouse wheel down to scroll
+window.addEventListener('wheel', (e) => {
+    if (e.deltaY > 0) {
+        enterApp();
+    }
+}, { passive: true });
+
+// Track touch swipe up to scroll
+let touchStartY = 0;
+window.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+window.addEventListener('touchmove', (e) => {
+    if (!touchStartY) return;
+    let touchEndY = e.touches[0].clientY;
+    if (touchStartY - touchEndY > 50) { 
+        enterApp();
+    }
+}, { passive: true });

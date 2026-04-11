@@ -18,8 +18,15 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2ecc71">
+    <!-- Spline 3D Viewer -->
+    <script type="module" src="https://unpkg.com/@splinetool/viewer@1.0.9/build/spline-viewer.js"></script>
 </head>
 <body>
+    <!-- Landing Page: Spline Only -->
+    <div id="landing-page" class="landing-page">
+        <spline-viewer url="https://prod.spline.design/3Z0eyftkGqgceCfQ/scene.splinecode"></spline-viewer>
+    </div>
+
     <div id="app">
         <!-- Map Container -->
         <div id="map"></div>
@@ -44,81 +51,99 @@
                 </div>
             </div>
 
-            <!-- Loading Overlay Removed to prevent buffering irritation -->
-            <div id="loading-overlay" class="loading-overlay hidden"></div>
+            <!-- Results Overlay Modal (Premium Glassmorphism) -->
+            <div id="result-overlay" class="result-overlay hidden" onclick="hideResultsPanel(event)">
+                <div id="results-panel" class="premium-glass-card" onclick="event.stopPropagation()">
+                    <button class="close-card-btn" onclick="hideResultsPanel()">&times;</button>
+                    
+                    <!-- Decorative Soft Gradient Glows -->
+                    <div class="card-glow glow-1"></div>
+                    <div class="card-glow glow-2"></div>
+                    
+                    <div class="card-content">
+                        <h3 class="card-title" data-i18n="results">Measurement Results</h3>
+                        
+                        <div class="premium-stats">
+                            <div class="p-stat main-stat">
+                                <span class="p-value" id="area-acres">0.000</span>
+                                <span class="p-label" data-i18n="acres">Acres</span>
+                            </div>
+                            
+                            <div class="p-stat-grid">
+                                <div class="p-stat">
+                                    <span id="area-guntas" class="p-value">0</span>
+                                    <span class="p-label" data-i18n="guntas">Guntas</span>
+                                </div>
+                                <div class="p-stat">
+                                    <span id="area-hectares" class="p-value">0.00</span>
+                                    <span class="p-label" data-i18n="hectares">Hectares</span>
+                                </div>
+                                <div class="p-stat">
+                                    <span id="area-sqft" class="p-value">0</span>
+                                    <span class="p-label" data-i18n="sqft">Sq. Feet</span>
+                                </div>
+                                <div class="p-stat">
+                                    <span id="dist-walked" class="p-value">0m</span>
+                                    <span class="p-label" data-i18n="distance">Distance</span>
+                                </div>
+                            </div>
+                        </div>
 
-            <!-- Results Panel -->
-            <div id="results-panel" class="results-panel hidden">
-                <div class="area-stats">
-                    <div class="stat-item">
-                        <span class="label" data-i18n="acres">Acres</span>
-                        <span id="area-acres" class="value" data-acres>0.000</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label" data-i18n="guntas">Guntas</span>
-                        <span id="area-guntas" class="value">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label" data-i18n="hectares">Hectares</span>
-                        <span id="area-hectares" class="value">0.00</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label" data-i18n="sqft">Sq. Feet</span>
-                        <span id="area-sqft" class="value">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="label" data-i18n="distance">Distance</span>
-                        <span id="dist-walked" class="value">0m</span>
+                        <div class="card-footer">
+                            <button onclick="shareOnWhatsApp()" class="premium-btn">
+                                <i class="fab fa-whatsapp"></i> <span data-i18n="share">Share Report</span>
+                            </button>
+                            <div class="premium-tag">
+                                <i class="fas fa-signal"></i> <span id="gps-accuracy-val">--</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- AI Advice Section (Moved here) -->
-                <button id="ai-advice-btn" class="btn-primary" style="background-color: #27ae60; padding: 10px; margin-top: 5px; font-size: 14px;" onclick="getAIAdvice()">
-                    <i class="fas fa-robot"></i> <span>Get AI Advice</span>
-                </button>
-                
-                <div id="ai-advice-card" class="summary-card ai-advice-card hidden" style="padding: 10px; margin-top: 5px; border-radius: 12px;">
-                    <i class="fas fa-seedling" style="font-size: 18px; width: 30px; height: 30px;"></i>
-                    <div class="details">
-                        <h4 style="font-size: 12px;">AI Farming Advice</h4>
-                        <p id="ai-advice-text" style="font-size: 13px !important;">...</p>
-                    </div>
+            <!-- AI Result Card (Hidden by default, used by JS) -->
+            <div id="ai-result-card" class="ai-card hidden">
+                <div class="ai-card-header">
+                    <i class="fas fa-robot"></i> AI Assistant
+                    <button onclick="closeAICard()" class="close-ai">&times;</button>
                 </div>
-
-                <div class="gps-info">
-                    <div class="accuracy-tag">
-                        <i class="fas fa-signal"></i> <span data-i18n="accuracy">Accuracy</span>: <span id="gps-accuracy-val">--</span>
-                    </div>
-                    <button onclick="shareOnWhatsApp()" class="share-btn-small">
-                        <i class="fab fa-whatsapp"></i> <span data-i18n="share">Share</span>
-                    </button>
+                <div id="ai-loading" class="ai-loading hidden">
+                     <div class="spinner"></div>
+                     <span>Asking Claude...</span>
                 </div>
+                <div id="ai-content" class="ai-content"></div>
             </div>
 
             <!-- Floating Bottom Panel -->
             <div class="bottom-panel">
-                <div class="bottom-actions">
+                <div class="bottom-actions glassmorphism">
                     <div id="draw-controls" class="action-group">
-                        <button id="undo-draw-btn" class="btn-secondary" onclick="undoLastPoint()" disabled>
+                        <button id="undo-draw-btn" class="btn-icon" onclick="undoLastPoint()" disabled>
                             <i class="fas fa-undo-alt"></i> <span data-i18n="undo">Undo</span>
                         </button>
-                        <button id="reset-draw-btn" class="btn-secondary" onclick="resetMeasurement()">
+                        <button id="reset-draw-btn" class="btn-icon" onclick="resetMeasurement()">
                             <i class="fas fa-trash-alt"></i> <span data-i18n="reset">Reset</span>
                         </button>
-                        <button id="save-draw-btn" class="btn-primary" onclick="showSaveDialog()">
+                        <button id="save-draw-btn" class="btn-icon btn-action" onclick="showSaveDialog()">
                             <i class="fas fa-save"></i> <span data-i18n="save">Save</span>
+                        </button>
+                        <button id="view-results-btn" class="btn-icon btn-highlight" onclick="showResultsPanel()">
+                            <i class="fas fa-chart-area"></i> <span>Results</span>
                         </button>
                     </div>
 
                     <div id="walk-controls" class="action-group hidden">
-                        <button id="start-walk-btn" class="btn-primary btn-large" onclick="startWalking()">
-                            <i class="fas fa-play"></i> <span data-i18n="start">Start Walking</span>
+                        <button id="start-walk-btn" class="btn-icon btn-action" onclick="startWalking()">
+                            <i class="fas fa-play"></i> <span>Start</span>
                         </button>
-                        <button id="stop-walk-btn" class="btn-danger btn-large hidden" onclick="stopWalking()">
-                            <i class="fas fa-stop"></i> <span data-i18n="stop">Stop & Finish</span>
+                        <button id="stop-walk-btn" class="btn-icon btn-danger hidden" onclick="stopWalking()">
+                            <i class="fas fa-stop"></i> <span>Stop</span>
                         </button>
-                        <button id="edit-walk-btn" class="btn-secondary hidden" onclick="toggleEditMode()">
-                            <i class="fas fa-edit"></i> <span data-i18n="edit">Edit</span>
+                        <button id="edit-walk-btn" class="btn-icon hidden" onclick="toggleEditMode()">
+                            <i class="fas fa-edit"></i> <span>Edit</span>
+                        </button>
+                        <button id="view-walk-results-btn" class="btn-icon btn-highlight" onclick="showResultsPanel()">
+                            <i class="fas fa-chart-area"></i> <span>Results</span>
                         </button>
                     </div>
                 </div>

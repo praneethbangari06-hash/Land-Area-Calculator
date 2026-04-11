@@ -73,11 +73,21 @@ def get_lands():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ai-advice', methods=['POST'])
-def get_ai_advice():
+@app.route('/api/land/<id>', methods=['DELETE'])
+def delete_land(id):
     try:
-        data = request.json
-        acres = float(data.get('acres', 0))
+        result = lands_collection.delete_one({"_id": ObjectId(id)})
+        if result.deleted_count == 1:
+            return jsonify({"message": "Land deleted successfully"}), 200
+        else:
+            return jsonify({"error": "Land not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/ai-advice', methods=['POST'])
+def ai_advice():
+    try:
+        acres = request.json.get('area', 0)
         
         if acres < 0.5:
             advice = "Small plot (under 0.5 acres). Best crops: Tomato, Brinjal, Chilli. Water: 2-3 hours daily by hand or pipe."
@@ -92,16 +102,27 @@ def get_ai_advice():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/land/<id>', methods=['DELETE'])
-def delete_land(id):
+@app.route('/api/ai-verify', methods=['POST'])
+def ai_verify():
     try:
-        result = lands_collection.delete_one({"_id": ObjectId(id)})
-        if result.deleted_count == 1:
-            return jsonify({"message": "Land deleted successfully"}), 200
+        data = request.json
+        area = float(data.get("area", 0))
+        
+        if area < 0.1:
+            return jsonify({
+                "warning": "⚠️ This measurement seems unusually small (less than 0.1 acres). Please re-verify your boundary points.",
+                "is_unusual": True
+            }), 200
+        elif area > 50:
+            return jsonify({
+                "warning": "⚠️ This measurement seems unusually large (more than 50 acres). Please re-verify your boundary points.",
+                "is_unusual": True
+            }), 200
         else:
-            return jsonify({"error": "Land not found"}), 404
+            return jsonify({"is_unusual": False}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.run(host='0.0.0.0', port=5000, debug=True)
