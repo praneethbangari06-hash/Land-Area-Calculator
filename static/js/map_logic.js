@@ -71,18 +71,7 @@ function setupDrawControls() {
         map.addControl(drawControl);
     }
 
-    // Add direct map click handler for easier drawing on mobile
-    map.on('click', onMapClick);
-    
-    // Add touch support for mobile
-    map.on('touchstart', function(e) {
-        if (e.originalEvent.touches.length > 1) return; // Ignore multi-touch
-        onMapClick(e);
-    });
-    
-    map.on('touchend', function(e) {
-        // Handle if needed, but touchstart is usually enough for single tap
-    });
+
 
     map.on(L.Draw.Event.CREATED, function (e) {
         const layer = e.layer;
@@ -118,18 +107,6 @@ function setupDrawControls() {
     });
 }
 
-function onMapClick(e) {
-    if (currentMode === 'draw' && !isEditing) {
-        // Prevent default touch behavior if it's a touch event
-        if (e.originalEvent && e.originalEvent.preventDefault) {
-            // e.originalEvent.preventDefault(); // Sometimes this blocks map pan
-        }
-        
-        manualPoints.push(e.latlng);
-        updateManualPolygon();
-        document.getElementById('undo-draw-btn').disabled = false;
-    }
-}
 
 function updateManualPolygon() {
     drawnItems.clearLayers();
