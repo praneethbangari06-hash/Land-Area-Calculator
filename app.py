@@ -102,27 +102,8 @@ def ai_advice():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/ai-verify', methods=['POST'])
-def ai_verify():
-    try:
-        data = request.json
-        area = float(data.get("area", 0))
-        
-        if area < 0.1:
-            return jsonify({
-                "warning": "⚠️ This measurement seems unusually small (less than 0.1 acres). Please re-verify your boundary points.",
-                "is_unusual": True
-            }), 200
-        elif area > 50:
-            return jsonify({
-                "warning": "⚠️ This measurement seems unusually large (more than 50 acres). Please re-verify your boundary points.",
-                "is_unusual": True
-            }), 200
-        else:
-            return jsonify({"is_unusual": False}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

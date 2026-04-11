@@ -255,11 +255,6 @@ function calculateAreaFromCoords(coords) {
     };
 
     updateResultsUI();
-    
-    // Auto-verify area with AI if it's outside normal range
-    if (parseFloat(currentArea.acres) > 0) {
-        checkAIVerification(parseFloat(currentArea.acres));
-    }
 }
 
 function updateResultsUI() {
@@ -409,28 +404,6 @@ async function getAIAdvice() {
     }
 }
 
-async function checkAIVerification(area) {
-    if (area < 0.1 || area > 50) {
-        try {
-            const response = await fetch('/api/ai-verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ area: area })
-            });
-
-            const data = await response.json();
-            if (data.is_unusual && data.warning) {
-                const card = document.getElementById('ai-result-card');
-                const content = document.getElementById('ai-content');
-                
-                card.classList.remove('hidden');
-                content.innerHTML = `<div class="ai-warning">⚠️ ${data.warning.replace(/\n/g, '<br>')}</div>`;
-            }
-        } catch (error) {
-            console.error("AI Verification Error:", error);
-        }
-    }
-}
 
 function closeAICard() {
     document.getElementById('ai-result-card').classList.add('hidden');

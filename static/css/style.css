@@ -44,12 +44,38 @@ body, html {
 /* Top Controls */
 .top-controls {
     position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
+    top: 15px;
+    left: 15px;
+    right: 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 10px;
+}
+
+/* Adjust for narrow screens */
+@media (max-width: 600px) {
+    .top-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .mode-switch {
+        order: 1;
+        width: auto;
+    }
+    
+    .lang-switch {
+        order: 2;
+    }
+    
+    .accuracy-badge {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        margin-top: 4px;
+    }
 }
 
 .mode-switch {
@@ -410,6 +436,25 @@ body, html {
     display: flex;
     gap: 12px;
     pointer-events: auto; /* Buttons are clickable */
+    width: 100%;
+    justify-content: center;
+}
+
+@media (max-width: 480px) {
+    .action-group {
+        gap: 10px;
+    }
+    
+    .btn-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 15px;
+        font-size: 10px;
+    }
+    
+    .btn-icon i {
+        font-size: 16px;
+    }
 }
 
 /* New Modern Button UI */
@@ -854,17 +899,31 @@ body, html {
     background: #000000;
     /* Smooth CSS transition to mimic scrolling behavior */
     transition: transform 1s cubic-bezier(0.65, 0, 0.35, 1);
-    display: block;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     overflow: hidden; /* Hides whatever goes outside this 100vh box */
 }
 
-/* Push the spline viewer down past the screen to chop off the watermark */
-.landing-page spline-viewer {
-    width: 100%;
-    height: calc(100% + 80px); /* Extra 80px pushes the bottom logo out of bounds */
+/* Make Spline canvas fully responsive and cover the viewport */
+#canvas3d {
+    width: 100vw !important;
+    height: 100vh !important;
+    display: block;
+    transform-origin: center center;
+    transition: transform 0.5s ease;
 }
 
-/* Hide Spline Logo Watermark (fallback if part is supported) */
+/* MOBILE FIX: Zoom in on the canvas for smaller screens 
+   to ensure the Earth fills the frame and isn't too small */
+@media (max-width: 600px) {
+    #canvas3d {
+        transform: scale(1.4); /* Manual zoom for mobile */
+    }
+}
+
+/* Hide Spline Logo Watermark (if part is supported via shadow DOM, 
+   redundant but kept for completeness if you use the viewer later) */
 spline-viewer::part(logo) {
     display: none !important;
 }
